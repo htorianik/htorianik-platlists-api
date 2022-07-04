@@ -1,9 +1,13 @@
 from pydantic import BaseModel
 
 
-class AvailableArtists(BaseModel):
-    available_artists: list[str]
+class Artist(BaseModel):
+    name: str
+
+    class Config:
+        orm_mode = True
 
 
-class SimilarArtists(BaseModel):
-    similar_artists: list[str]
+class PaginationConfig(BaseModel):
+    offset: int = 0
+    limit: int = 100

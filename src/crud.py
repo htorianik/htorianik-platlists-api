@@ -1,42 +1,54 @@
 from sqlalchemy import select, func
+from sqlalchemy.orm import Session
 
 from . import models
-from .database import Session
 
 
 def get_available_artists(
     db: Session,
     offset: int = 0,
     limit: int = 100,
-) -> list[str]:
+) -> list[models.Artist]:
     """
     Retrieves names of artists that occured in dataset.
     """
-    query = select(models.Artist.name).offset(offset).limit(limit)
-
+    query = select(models.Artist).offset(offset).limit(limit)
     return db.execute(query).scalars().all()
 
 
-def get_similar_artists(
+def get_artist(
     db: Session,
-    artist_name: str,
-) -> list[str]:
+    name: str,
+) -> models.Artist | None:
+    """
+    Searching for the artist with the given name ignoring it's case.
+    """
+    query = select(models.Artist).where(models.Artist.name.ilike(name)).limit(1)
+    return db.execute(query).scalars().first()
+
+
+def get_similar_artists(
+    db: Session, artist: models.Artist, limit: int = 5,
+) -> list[models.Artist] | None:
+    """
+    Returns a list of similar artists.
+    """
     associated_playlist_ids = (
         db.execute(
             select(models.Playlist.id)
             .join(models.Playlist.tracks)
             .join(models.Track.artist)
-            .filter(models.Artist.name == artist_name)
+            .filter(models.Artist.name == artist.name)
         )
         .scalars()
         .all()
     )
 
-    result = (
+    return (
         db.execute(
-            select(models.Artist.name)
+            select(models.Artist)
             .join(models.Artist.tracks)
-            .filter(models.Artist.name != artist_name)
+            .filter(models.Artist.name != artist.name)
             .join(models.Track.playlists)
             .filter(models.Playlist.id.in_(associated_playlist_ids))
             .group_by(models.Artist.name)
@@ -46,5 +58,3 @@ def get_similar_artists(
         .scalars()
         .all()
     )
-
-    return result

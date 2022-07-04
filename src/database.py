@@ -9,4 +9,4 @@ settings = get_settings()
 
 engine = create_engine(settings.sa_database_uri)
 
-Session = sessionmaker(bind=engine)
+SessionFactory = sessionmaker(bind=engine)

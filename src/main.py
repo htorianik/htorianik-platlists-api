@@ -1,7 +1,10 @@
-from fastapi import FastAPI, Depends
+from typing import Generator
+
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from . import models, schemas, crud
-from .database import Session, engine
+from .database import SessionFactory, engine
 from .settings import get_settings
 
 
@@ -15,22 +18,27 @@ settings = get_settings()
 
 
 # Dependency
-def get_db():
-    db = Session()
+def get_db() -> Generator[Session, None, None]:
+    db = SessionFactory()
     try:
         yield db
     finally:
         db.close()
 
 
-@app.get("/similar_artists/{artist_name}", response_model=schemas.SimilarArtists)
-def get_similar_artists(
-    artist_name: str,
+@app.post("/similar_artists", response_model=list[schemas.Artist])
+def similar_artists(
+    input_artist: schemas.Artist,
     db: Session = Depends(get_db),
 ):
-    return {"similar_artists": crud.get_similar_artists(db, artist_name)}
+    print("Hello world")
+    if artist := crud.get_artist(db, input_artist.name):
+        return crud.get_similar_artists(db, artist)
+    raise HTTPException(status_code=404, detail="Artist not found")
 
 
-@app.get("/available_artists", response_model=schemas.AvailableArtists)
-def available_artists(limit: int = 100, offset: int = 0, db: Session = Depends(get_db)):
-    return {"available_artists": crud.get_available_artists(db, offset, limit)}
+@app.post("/available_artists", response_model=list[schemas.Artist])
+def available_artists(
+    pagination: schemas.PaginationConfig, db: Session = Depends(get_db)
+):
+    return crud.get_available_artists(db, pagination.offset, pagination.limit)
